@@ -5,8 +5,8 @@ from aiogram.types import CallbackQuery
 
 from bot.db.database import *
 from bot.models.movie_data import DisplayableMovie
-from bot.utils.list_utils import edit_movie_list
-from bot.services.movies_api import find_movies_by_title, get_details_by_id
+from bot.utils.list_utils import edit_movie_list, update_list_page
+from bot.services.movies_api import get_details_by_id
 import logging
 
 logger = logging.getLogger(__name__)
@@ -49,24 +49,13 @@ async def process_callback_button_num(callback_query: CallbackQuery):
 async def process_callback_arrow(callback_query: CallbackQuery):
     logger.info(f'{callback_query.data} pressed! From message: {callback_query.message.message_id}')
 
-    direction = -1 if callback_query.data == "left_arrow" else 1
-
     message_id = callback_query.message.message_id
     user_id = callback_query.from_user.id
     message_context = await load_message_context(message_id, user_id)
 
-    message_context.page += direction
+    message_context.page += -1 if callback_query.data == "left_arrow" else 1
 
-    if message_context.mode == MessageMode.HISTORY:
-        movies, total = await get_history_data(user_id, message_context.page)
-    elif message_context.mode == MessageMode.SEARCH:
-        old_movies, query_title, total = await get_search_data(message_id, user_id)
-        movies, total = await find_movies_by_title(query_title, message_context.page)
-        await save_search_data(message_id, user_id, query_title, movies, total)
-    else:
-        movies, total = await get_stats_data(user_id, message_context.page)
-
-    logger.info(f"New page {message_context.page} of movies: {movies}")
+    movies, total = await update_list_page(message_id, user_id, message_context)
 
     await edit_movie_list(callback_query.message, movies, total, message_context)
 
@@ -80,15 +69,6 @@ async def process_callback_return(callback_query: CallbackQuery):
 
     message_context.page = 1
 
-    if message_context.mode == MessageMode.HISTORY:
-        movies, total = await get_history_data(user_id, message_context.page)
-    elif message_context.mode == MessageMode.SEARCH:
-        old_movies, query_title, total = await get_search_data(message_id, user_id)
-        movies, total = await find_movies_by_title(query_title, message_context.page)
-        await save_search_data(message_id, user_id, query_title, movies, total)
-    else:
-        movies, total = await get_stats_data(user_id, message_context.page)
-
-    logger.info(f"New page {message_context.page} of movies: {movies}")
+    movies, total = await update_list_page(message_id, user_id, message_context)
 
     await edit_movie_list(callback_query.message, movies, total, message_context)

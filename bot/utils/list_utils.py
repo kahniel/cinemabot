@@ -1,8 +1,8 @@
 from aiogram.types import Message
-from bot.db.database import save_message_context
+from bot.db.database import save_message_context, get_history_data, get_search_data, save_search_data, get_stats_data
 from bot.models.message_data import MessageContext, MessageMode
 from bot.models.movie_data import DisplayableMovie
-from bot.services.movies_api import MOVIES_ON_PAGE
+from bot.services.movies_api import MOVIES_ON_PAGE, find_movies_by_title
 
 from bot.utils.keyboards import generate_selector_kb
 from emoji import emojize
@@ -78,3 +78,21 @@ async def edit_movie_list(
         user_id=message.from_user.id,
         message_context=message_context
     )
+
+async def update_list_page(
+        message_id: int, user_id: int, message_context: MessageContext
+    ) -> tuple[list['DisplayableMovie'], int]:
+
+    movies: list['DisplayableMovie']
+    if message_context.mode == MessageMode.HISTORY:
+        movies, total = await get_history_data(user_id, message_context.page)
+    elif message_context.mode == MessageMode.SEARCH:
+        old_movies, query_title, total = await get_search_data(message_id, user_id)
+        movies, total = await find_movies_by_title(query_title, message_context.page)
+        await save_search_data(message_id, user_id, query_title, movies, total)
+    else:
+        movies, total = await get_stats_data(user_id, message_context.page)
+
+    logger.info(f"New page {message_context.page} of movies: {movies}")
+
+    return movies, total
