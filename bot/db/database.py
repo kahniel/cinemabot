@@ -85,7 +85,7 @@ async def add_movie_to_history(user_id: int, movie: 'DisplayableMovie'):
             raise
 
 
-async def get_history_data(user_id: int, page: int = 1) -> tuple[list['MovieShort'], int]:
+async def get_history_data(user_id: int, page: int = 1) -> tuple[list['DisplayableMovie'], int]:
     offset = (page - 1) * MOVIES_ON_PAGE
 
     async with aiosqlite.connect(DB_PATH) as db:
@@ -98,7 +98,9 @@ async def get_history_data(user_id: int, page: int = 1) -> tuple[list['MovieShor
         """, (user_id, MOVIES_ON_PAGE, offset))
 
         rows = await cursor.fetchall()
-        movies = [MovieShort(id=row[0], title=row[1], year=row[2]) for row in rows]
+        movies: list['DisplayableMovie'] = [ # type: ignore
+            MovieShort(id=row[0], title=row[1], year=row[2]) for row in rows
+        ]
 
         cursor_total = await db.execute("SELECT COUNT(*) FROM history WHERE user_id = ?", (user_id,))
         total = (await cursor_total.fetchone())[0]
@@ -106,7 +108,7 @@ async def get_history_data(user_id: int, page: int = 1) -> tuple[list['MovieShor
         return movies, total
 
 
-async def get_stats_data(user_id: int, page: int = 1) -> tuple[list['MovieStat'], int]:
+async def get_stats_data(user_id: int, page: int = 1) -> tuple[list['DisplayableMovie'], int]:
     offset = (page - 1) * MOVIES_ON_PAGE
 
     async with aiosqlite.connect(DB_PATH) as db:
@@ -119,7 +121,7 @@ async def get_stats_data(user_id: int, page: int = 1) -> tuple[list['MovieStat']
             """, (user_id, MOVIES_ON_PAGE, offset))
 
         rows = await cursor.fetchall()
-        movies = [
+        movies: list['DisplayableMovie'] = [ # type: ignore
             MovieStat(
                 movie=MovieShort(id=row[0], title=row[1], year=row[2]),
                 count=row[3]
@@ -133,7 +135,7 @@ async def get_stats_data(user_id: int, page: int = 1) -> tuple[list['MovieStat']
         return movies, total
 
 
-async def get_search_data(message_id: int, user_id: int) -> tuple[list['MovieShort'], str, int]:
+async def get_search_data(message_id: int, user_id: int) -> tuple[list['DisplayableMovie'], str, int]:
     async with aiosqlite.connect(DB_PATH) as db:
         cursor = await db.execute("""
             SELECT movies_json, query_title, total
@@ -146,7 +148,9 @@ async def get_search_data(message_id: int, user_id: int) -> tuple[list['MovieSho
             raise ValueError('Search cache not found')
 
         movies_json, query_title, total = row
-        movies = [MovieShort(**movie) for movie in json.loads(movies_json)]
+        movies: list['DisplayableMovie'] = [ # type: ignore
+            MovieShort(**movie) for movie in json.loads(movies_json)
+        ]
 
         return movies, query_title, total
 

@@ -1,5 +1,7 @@
 # Cinema Bot 🎬
 
+> **Попробовать бота:** [@iomovies_bot](https://t.me/iomovies_bot)
+
 ## Используемые технологии
 
 - **[aiogram](https://github.com/aiogram/aiogram)** — для работы с Telegram Bot API.
