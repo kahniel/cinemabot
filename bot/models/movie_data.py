@@ -1,0 +1,146 @@
+import html
+from dataclasses import dataclass
+from typing import Optional, Protocol
+
+from aiogram.client.session import aiohttp
+from aiogram.types import Message, LinkPreviewOptions
+
+from emoji import emojize
+import logging
+
+logger = logging.getLogger(__name__)
+
+class DisplayableMovie(Protocol):
+    @property
+    def id(self) -> int: ...
+
+    @property
+    def title(self) -> str: ...
+
+    @property
+    def year(self) -> Optional[int]: ...
+
+    @property
+    def count(self) -> Optional[int]: ...
+
+@dataclass
+class MovieShort:
+    id: int
+    title: str
+    year: Optional[int] = None
+
+    @property
+    def count(self) -> Optional[int]:
+        return None
+
+    def __post_init__(self):
+        if not isinstance(self.id, int) or self.id <= 0:
+            raise ValueError("ID is supposed to be integer >= 0")
+        if not self.title or not self.title.strip():
+            raise ValueError("Movie title cannot be empty")
+        if self.year is not None and (not isinstance(self.year, int) or self.year < 1800 or self.year > 2030):
+            self.year = None
+
+
+@dataclass
+class MovieStat:
+    movie: MovieShort
+    count: int = 0
+
+    @property
+    def title(self) -> str:
+        return self.movie.title
+
+    @property
+    def id(self) -> int:
+        return self.movie.id
+
+    @property
+    def year(self) -> Optional[int]:
+        return self.movie.year
+
+    def __post_init__(self):
+        if not isinstance(self.count, int) or self.count < 0:
+            raise ValueError("Количество должно быть неотрицательным целым числом")
+
+
+@dataclass
+class MovieDetails:
+    id: int
+    title: str
+    watchability: bool
+    year: Optional[int] = None
+    rating: Optional[float] = None
+    plot: Optional[str] = None
+    poster_url: Optional[str] = None
+    watch_url: Optional[str] = None
+
+    def __post_init__(self):
+        if not isinstance(self.id, int) or self.id <= 0:
+            raise ValueError("ID is supposed to be integer >= 0")
+        if not self.title or not self.title.strip():
+            raise ValueError("Movie title cannot be empty")
+        if self.year is not None and (not isinstance(self.year, int) or self.year < 1800 or self.year > 2030):
+            raise ValueError("Year is supposed to be between 1800 and 2030")
+        if self.rating is not None and (not isinstance(self.rating, (int, float)) or self.rating < 0 or self.rating > 10):
+            raise ValueError("Rating is supposed to be between 0 and 10")
+        if not isinstance(self.watchability, bool):
+            raise ValueError("Watchability is supposed to be bool")
+
+    def has_complete_info(self) -> bool:
+        return all([
+            self.year is not None,
+            self.rating is not None,
+            self.plot is not None and self.plot.strip(),
+            self.poster_url is not None and self.poster_url.strip()
+        ])
+
+    def to_short(self) -> MovieShort:
+        return MovieShort(id=self.id, title=self.title, year=self.year)
+
+    def generate_text(self):
+        safe_title = html.escape(self.title)
+
+        text = f":clapper_board: <b>{safe_title}</b> ({self.year})\n"
+
+        if self.rating != 0:
+            text += f":star: <b>Рейтинг:</b> {self.rating}/10\n\n"
+
+        if self.plot:
+            clean_plot = self.plot.replace('\xa0', ' ').replace('\u00a0', ' ').strip()
+            safe_plot = html.escape(clean_plot)
+
+            text += f":memo: <b>Описание:</b> {safe_plot}\n\n"
+
+        text += emojize(":link:" if self.watchability else ":magnifying_glass_tilted_right:")
+
+        safe_url = html.escape(self.watch_url) if self.watch_url else "#"
+        text += f" <a href='{safe_url}'>"
+        text += "Смотреть онлайн" if self.watchability else "Найти онлайн"
+        text += "</a>"
+
+        return emojize(text)
+
+    async def send(self, message: Message):
+        caption = self.generate_text()
+        if self.poster_url:
+            try:
+                if len(caption) <= 1020:
+                    await message.answer_photo(
+                        photo=self.poster_url,
+                        caption=self.generate_text(),
+                        parse_mode="HTML"
+                    )
+                    return
+                else:
+                    await message.answer_photo(
+                        photo=self.poster_url
+                    )
+            except Exception as e:
+                logger.warning(f"Failed to send photo {self.poster_url}: {e}")
+
+        await message.answer(
+            text=caption,
+            parse_mode="HTML",
+            link_preview_options=LinkPreviewOptions(is_disabled=True)
+        )

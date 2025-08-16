@@ -1,0 +1,10 @@
+services:
+  app:
+    build: .
+    container_name: bot
+    ports:
+      - "80:80"
+      - "443:443"
+    environment:
+      - BOT_TOKEN=$BOT_TOKEN
+      - KP_API_KEY=$KP_API_KEY
