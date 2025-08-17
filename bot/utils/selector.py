@@ -4,8 +4,7 @@ from aiogram import Router, F
 from aiogram.types import CallbackQuery
 
 from bot.db.database import *
-from bot.models.movie_data import DisplayableMovie
-from bot.utils.list_utils import edit_movie_list, update_list_page
+from bot.utils.list_utils import edit_movie_list, update_page
 from bot.services.movies_api import get_details_by_id
 import logging
 
@@ -22,18 +21,7 @@ async def process_callback_button_num(callback_query: CallbackQuery):
     user_id = callback_query.from_user.id
     message_context = await load_message_context(message_id, user_id)
 
-    if message_context.mode == MessageMode.SEARCH:
-        movies, _, total = await get_search_data(message_id, user_id)
-    elif message_context == MessageMode.HISTORY:
-        movies, total = await get_history_data(user_id, message_context.page)
-    else:
-        movies, total = await get_stats_data(user_id, message_context.page)
-
-    if not movies or idx >= len(movies):
-        await callback_query.answer("Фильм не найден.")
-        return
-
-    movie: 'DisplayableMovie' = movies[idx]
+    movie = message_context.movies[idx]
 
     logger.info(f"Looking for movie: {movie.id}")
     movie_details = await get_details_by_id(movie.id)
@@ -53,11 +41,11 @@ async def process_callback_arrow(callback_query: CallbackQuery):
     user_id = callback_query.from_user.id
     message_context = await load_message_context(message_id, user_id)
 
-    message_context.page += -1 if callback_query.data == "left_arrow" else 1
+    new_page = message_context.page + (-1 if callback_query.data == "left_arrow" else 1)
 
-    movies, total = await update_list_page(message_id, user_id, message_context)
+    await update_page(message_context, message_id, user_id, new_page)
 
-    await edit_movie_list(callback_query.message, movies, total, message_context)
+    await edit_movie_list(callback_query.message, message_context)
 
 @router.callback_query(F.data.regexp(r"(h?)return$"))
 async def process_callback_return(callback_query: CallbackQuery):
@@ -67,8 +55,6 @@ async def process_callback_return(callback_query: CallbackQuery):
     user_id = callback_query.from_user.id
     message_context = await load_message_context(message_id, user_id)
 
-    message_context.page = 1
+    await update_page(message_context, message_id, user_id, 1)
 
-    movies, total = await update_list_page(message_id, user_id, message_context)
-
-    await edit_movie_list(callback_query.message, movies, total, message_context)
+    await edit_movie_list(callback_query.message, message_context)

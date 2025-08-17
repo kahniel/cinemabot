@@ -2,7 +2,7 @@ from aiogram import Router
 from aiogram.filters import Command
 from aiogram.types import Message
 from bot.db.database import get_stats_data
-from bot.models.message_data import MessageContext, MessageMode
+from bot.models.message_data import MessageContext
 from emoji import emojize
 
 import logging
@@ -16,15 +16,13 @@ router = Router()
 
 @router.message(Command("stats"))
 async def cmd_stats(message: Message):
-    movies, total = await get_stats_data(message.from_user.id)
+    message_context: 'MessageContext' = await get_stats_data(message.from_user.id)
 
-    if not total:
+    if not message_context.total:
         text = emojize(
             ":chart_decreasing: У тебя пока нет статистики. Начни с поиска фильма!"
         )
         await message.answer(text)
         return
 
-    message_context = MessageContext(page=1, mode=MessageMode.STATS)
-
-    await send_movie_list(message, movies, total, message_context)
+    await send_movie_list(message, message_context)

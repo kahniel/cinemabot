@@ -1,8 +1,7 @@
 import html
-from dataclasses import dataclass
-from typing import Optional, Protocol
+from dataclasses import dataclass, asdict
+from typing import Optional
 
-from aiogram.client.session import aiohttp
 from aiogram.types import Message, LinkPreviewOptions
 
 from emoji import emojize
@@ -10,28 +9,13 @@ import logging
 
 logger = logging.getLogger(__name__)
 
-class DisplayableMovie(Protocol):
-    @property
-    def id(self) -> int: ...
-
-    @property
-    def title(self) -> str: ...
-
-    @property
-    def year(self) -> Optional[int]: ...
-
-    @property
-    def count(self) -> Optional[int]: ...
-
 @dataclass
 class MovieShort:
     id: int
     title: str
     year: Optional[int] = None
+    count: Optional[int] = None
 
-    @property
-    def count(self) -> Optional[int]:
-        return None
 
     def __post_init__(self):
         if not isinstance(self.id, int) or self.id <= 0:
@@ -40,28 +24,15 @@ class MovieShort:
             raise ValueError("Movie title cannot be empty")
         if self.year is not None and (not isinstance(self.year, int) or self.year < 1800 or self.year > 2030):
             self.year = None
+        if self.count is not None and (not isinstance(self.count, int) or self.count < 0):
+            raise ValueError("Count is supposed to be integer >= 0")
 
+    def to_dict(self) -> dict:
+        return asdict(self) # type: ignore
 
-@dataclass
-class MovieStat:
-    movie: MovieShort
-    count: int = 0
-
-    @property
-    def title(self) -> str:
-        return self.movie.title
-
-    @property
-    def id(self) -> int:
-        return self.movie.id
-
-    @property
-    def year(self) -> Optional[int]:
-        return self.movie.year
-
-    def __post_init__(self):
-        if not isinstance(self.count, int) or self.count < 0:
-            raise ValueError("Количество должно быть неотрицательным целым числом")
+    @classmethod
+    def from_dict(cls, dct: dict) -> 'MovieShort':
+        return cls(**dct)
 
 
 @dataclass

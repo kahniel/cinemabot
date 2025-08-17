@@ -1,4 +1,6 @@
 import aiohttp
+
+from bot.models.message_data import MessageContext, MessageMode
 from bot.models.movie_data import MovieShort, MovieDetails
 from bot.config import KP_API_KEY
 import logging
@@ -56,14 +58,14 @@ async def get_details_by_id(item_id: int) -> MovieDetails | None:
 
             return parse_movie_details(unparsed_details)
 
-async def find_movies_by_title(query_title: str, page: int = 1) -> tuple[list[MovieShort], int]:
+async def find_movies_by_title(query_title: str, page: int = 1) -> 'MessageContext':
     params = {
         "query": query_title,
         "page" : f"{page}",
         "limit" : f"{MOVIES_ON_PAGE}"
     }
 
-    async with aiohttp.ClientSession() as session:
+    async with (aiohttp.ClientSession() as session):
         async with session.get(BASE_SEARCH_URL, headers=HEADERS, params=params) as response:
             if response.status != 200:
                 raise aiohttp.ClientResponseError(
@@ -82,4 +84,10 @@ async def find_movies_by_title(query_title: str, page: int = 1) -> tuple[list[Mo
                         id=movie.get("id")
                     )
                 )
-            return parsed_movies, data.get("total")
+            return MessageContext(
+                page=page,
+                mode=MessageMode.SEARCH,
+                total=data.get("total"),
+                movies=parsed_movies
+            )
+

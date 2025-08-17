@@ -12,3 +12,5 @@ KP_API_KEY = os.getenv("KP_API_KEY")
 
 if not KP_API_KEY:
     raise RuntimeError("KP_API_KEY is not set")
+
+MOVIES_ON_PAGE = 8
