@@ -1,7 +1,7 @@
 import aiohttp
 
 from bot.models.message_data import MessageContext, MessageMode
-from bot.models.movie_data import MovieShort, MovieDetails
+from bot.models.movie_data import MovieShort, MovieDetails, Platform
 from bot.config import KP_API_KEY
 import logging
 
@@ -32,20 +32,24 @@ def parse_movie_details(unparsed_details: dict) -> MovieDetails:
         title = unparsed_details.get("alternativeName")
     logger.info(f"Chosen title: {title}")
 
-
-    watch_url = f"https://www.google.com/search?q={title.replace(' ', '+')}+смотреть+онлайн"
+    watchability = []
     if unparsed_details.get("watchability").get("items"):
-        watch_url = unparsed_details.get("watchability").get("items")[0].get("url")
+        for item in unparsed_details.get("watchability").get("items"):
+            watchability.append(
+                Platform(
+                    name=item.get('name'),
+                    url=item.get('url')
+                )
+            )
 
     return MovieDetails(
         id=unparsed_details.get('id'),
         title=title,
-        watchability=bool(unparsed_details.get("watchability").get("items")),
+        watchability=watchability,
         year=unparsed_details.get("year"),
         rating = select_rating(unparsed_details),
         plot=unparsed_details.get("description"),
-        poster_url=unparsed_details.get("poster").get("url") if unparsed_details.get("poster") else None,
-        watch_url=watch_url
+        poster_url=unparsed_details.get("poster").get("url") if unparsed_details.get("poster") else None
     )
 
 async def get_details_by_id(item_id: int) -> MovieDetails | None:

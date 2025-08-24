@@ -24,7 +24,7 @@ async def search_movie(message: Message) -> None:
         if e.message:
             text = emojize(f":no_entry: Ошибка при поиске фильма: {e.message}")
         else:
-            text = emojize(f":no_entry: Ошибка при поиске фильма: {e.status}.")
+            text = emojize(f":no_entry: Ошибка при поиске фильма (код: {e.status}).")
         await message.answer(text=text)
         return
 

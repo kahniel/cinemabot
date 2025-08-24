@@ -2,7 +2,7 @@ import html
 from dataclasses import dataclass, asdict
 from typing import Optional
 
-from aiogram.types import Message, LinkPreviewOptions
+from aiogram.types import Message, LinkPreviewOptions, InlineKeyboardButton, InlineKeyboardMarkup
 
 from emoji import emojize
 import logging
@@ -34,17 +34,20 @@ class MovieShort:
     def from_dict(cls, dct: dict) -> 'MovieShort':
         return cls(**dct)
 
+@dataclass
+class Platform:
+    name: str
+    url: str
 
 @dataclass
 class MovieDetails:
     id: int
     title: str
-    watchability: bool
+    watchability: list['Platform']
     year: Optional[int] = None
     rating: Optional[float] = None
     plot: Optional[str] = None
     poster_url: Optional[str] = None
-    watch_url: Optional[str] = None
 
     def __post_init__(self):
         if not isinstance(self.id, int) or self.id <= 0:
@@ -55,8 +58,6 @@ class MovieDetails:
             raise ValueError("Year is supposed to be between 1800 and 2030")
         if self.rating is not None and (not isinstance(self.rating, (int, float)) or self.rating < 0 or self.rating > 10):
             raise ValueError("Rating is supposed to be between 0 and 10")
-        if not isinstance(self.watchability, bool):
-            raise ValueError("Watchability is supposed to be bool")
 
     def has_complete_info(self) -> bool:
         return all([
@@ -83,14 +84,29 @@ class MovieDetails:
 
             text += f":memo: <b>Описание:</b> {safe_plot}\n\n"
 
-        text += emojize(":link:" if self.watchability else ":magnifying_glass_tilted_right:")
-
-        safe_url = html.escape(self.watch_url) if self.watch_url else "#"
-        text += f" <a href='{safe_url}'>"
-        text += "Смотреть онлайн" if self.watchability else "Найти онлайн"
-        text += "</a>"
-
         return emojize(text)
+
+    def generate_platforms_kb(self):
+        keyboard = []
+        for platform in self.watchability:
+            keyboard.append([
+                InlineKeyboardButton(
+                    text=platform.name,
+                    url=platform.url
+                )
+            ])
+        if not keyboard:
+            keyboard.append([
+                InlineKeyboardButton(
+                    text=emojize(":magnifying_glass_tilted_right: Найти онлайн"),
+                    url=f"https://www.google.com/search?q={self.title.replace(' ', '+')}+смотреть+онлайн"
+                )
+            ])
+
+
+        logger.info(f"Buttons: {keyboard}")
+
+        return InlineKeyboardMarkup(inline_keyboard=keyboard)
 
     async def send(self, message: Message):
         caption = self.generate_text()
@@ -100,7 +116,8 @@ class MovieDetails:
                     await message.answer_photo(
                         photo=self.poster_url,
                         caption=self.generate_text(),
-                        parse_mode="HTML"
+                        parse_mode="HTML",
+                        reply_markup=self.generate_platforms_kb()
                     )
                     return
                 else:
@@ -113,5 +130,6 @@ class MovieDetails:
         await message.answer(
             text=caption,
             parse_mode="HTML",
-            link_preview_options=LinkPreviewOptions(is_disabled=True)
+            link_preview_options=LinkPreviewOptions(is_disabled=True),
+            reply_markup=self.generate_platforms_kb()
         )
