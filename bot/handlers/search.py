@@ -21,7 +21,10 @@ async def search_movie(message: Message) -> None:
     try:
         message_context = await find_movies_by_title(query_title)
     except aiohttp.ClientResponseError as e:
-        text = emojize(f":no_entry: Ошибка при поиске фильма (код {e.status}). Попробуй снова.")
+        if e.message:
+            text = emojize(f":no_entry: Ошибка при поиске фильма: {e.message}")
+        else:
+            text = emojize(f":no_entry: Ошибка при поиске фильма: {e.status}.")
         await message.answer(text=text)
         return
 

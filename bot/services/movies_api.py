@@ -67,14 +67,14 @@ async def find_movies_by_title(query_title: str, page: int = 1) -> 'MessageConte
 
     async with (aiohttp.ClientSession() as session):
         async with session.get(BASE_SEARCH_URL, headers=HEADERS, params=params) as response:
+            data = await response.json()
             if response.status != 200:
                 raise aiohttp.ClientResponseError(
                     request_info=response.request_info,
                     history=response.history,
                     status=response.status,
-                    message=f"Failed to fetch movies: {response.reason}"
+                    message=data.get('message')
                 )
-            data = await response.json()
             parsed_movies =[]
             for movie in data.get("docs"):
                 parsed_movies.append(
